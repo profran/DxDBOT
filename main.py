@@ -7,13 +7,15 @@ import platform
 import json
 import datetime
 import random
+import validators
 
-# Here you can modify the bot's prefix and description and wether it sends help in direct messages or not.
-#client = Bot(description="DxD's custom BOT, use (/) for commands", command_prefix="/", pm_help = True)
+from ytsearch import youtube_search
 
-#voice = None
-#player = None
+from apiclient.discovery import build
+from apiclient.errors import HttpError
+from oauth2client.tools import argparser
 
+#Bot's class
 class Bot(commands.Bot):
 	def __init__(self, *args, **kwargs):
 
@@ -29,11 +31,12 @@ class Bot(commands.Bot):
 			return bot.settings.get_prefixes(message.server)
 
 		self.uptime = datetime.datetime.utcnow()  # Refreshed before login
-		self.player = None
+		self.player = None 
 		self.queue = []
 
 		super().__init__(*args, **kwargs)
 
+#Function for initializing the bot with a private JSON.
 def run(bot):
 
 	with open('botinfo.json') as info_file: 
@@ -42,37 +45,102 @@ def run(bot):
 
 	bot.run(data['bot'][0]['token'])
 
+def screen():
+	pass
+
+#Function that deletes messages.
 async def delete_message(bot, *args):
 	
 	for msg in args:
 
 		await bot.delete_message(msg)
 
-async def play_youtube(bot, ctx, url):
+#Function for playing the requested YouTube URL.
+async def play_youtube(bot, ctx, search):
 
-	try:
+	if (validators.url(search)):
 
-		voice = None
+		try:
 
-		for x in bot.voice_clients:
+			voice = None
 
-			if(x.server == ctx.message.server):
+			for x in bot.voice_clients:
 
-				voice = x
-		
-		if (voice is None):
-			voice = await bot.join_voice_channel(discord.Object(id = str(get_user_voice_channel(ctx.message.author))))
+				if(x.server == ctx.message.server):
 
-		bot.player = await voice.create_ytdl_player(url)
-		bot.player.start()
-
-		await bot.say('Playing {} by {} from YouTube...'.format(bot.player.title, bot.player.uploader))
-
-	except Exception as e:
+					voice = x
 			
-		print(e)
-		await bot.say('There was an error while trying to play the requested song...')
+			if (voice is None):
+				voice = await bot.join_voice_channel(discord.Object(id = str(get_user_voice_channel(ctx.message.author))))
 
+			bot.player = await voice.create_ytdl_player(url)
+			bot.player.start()
+
+			await bot.say('Playing {} by {} from YouTube...'.format(bot.player.title, bot.player.uploader))
+
+		except Exception as e:
+			
+			print(e)
+			await bot.say('There was an error while trying to play the requested song...')
+
+	else:
+
+		argparser.add_argument("--q", help="Search term", default=search)
+		argparser.add_argument("--max-results", help="Max results", default=6)
+		args = argparser.parse_args()
+
+		search = []
+		error = False
+
+		try:
+			search = youtube_search(args)
+
+		except HttpError as e:
+
+			print("An HTTP error %d occurred:\n%s" % (e.resp.status, e.content))
+			error = True
+
+		if (not error):
+
+			await bot.say('I have found the following videos from YouTube:')
+			
+			for video in range(0, len(search) - 1):
+				
+				await bot.say('{}. {}'.format(video, search[video][0]))
+
+			def check(msg):
+
+				if (msg.content in ['0', '1', '2', '3', '4']):
+					return True
+				else:
+					return False
+
+			message = await bot.wait_for_message(author=ctx.message.author, check=check)
+
+			try:
+
+				voice = None
+
+				for x in bot.voice_clients:
+
+					if(x.server == ctx.message.server):
+
+						voice = x
+				
+				if (voice is None):
+					voice = await bot.join_voice_channel(discord.Object(id = str(get_user_voice_channel(ctx.message.author))))
+
+				bot.player = await voice.create_ytdl_player('https://www.youtube.com/watch?v={}'.format(str(search[int(message.content)][1])))
+				bot.player.start()
+
+				await bot.say('Playing {} by {} from YouTube...'.format(bot.player.title, bot.player.uploader))
+
+			except Exception as e:
+				
+				print(e)
+				await bot.say('There was an error while trying to play the requested song...')
+
+#Function that returns an user's voice channel if connected.
 def get_user_voice_channel(user):
 	
 	try:
@@ -85,12 +153,14 @@ def get_user_voice_channel(user):
 
 	return channel
 
+#Function that checks the existance of the -d modifier.
 def check_deletion(arg):
 
 	if (arg == '-d' or arg == '-D') : return True
 
 	return False
 
+#Main function.
 def main(bot_class = Bot):
 
 	bot = bot_class(description="DxD's custom BOT, use (/) for commands", command_prefix="/", pm_help = True)
@@ -144,8 +214,6 @@ def main(bot_class = Bot):
 
 	@bot.command(pass_context = True)
 	async def leave(ctx):
-
-
 		
 		for x in bot.voice_clients:
 
@@ -160,13 +228,13 @@ def main(bot_class = Bot):
 
 			await delete_message(bot, ctx.message)
 
-			await play_youtube(bot, ctx, args[1])
+			await play_youtube(bot, ctx, ' '.join(args[1:]))
 
 			#await bot.say('Playing {} by {} from YouTube...'.format(bot.player.title, bot.player.uploader))
 
 		else: 
 
-			await play_youtube(bot, ctx, args[0])
+			await play_youtube(bot, ctx, ' '.join(args[0:]))
 
 		#attrs = vars(voice)
 		# {'kids': 0, 'name': 'Dog', 'color': 'Spotted', 'age': 10, 'legs': 2, 'smell': 'Alot'}
@@ -199,7 +267,31 @@ def main(bot_class = Bot):
 		except Exception as e:
 
 			print(e)
-			await bot.say('There was an error while trying to pause the requested song...(No song?)')
+			await bot.say('There was an error while trying to resume the requested song...(No song?)')
+
+	@bot.command()
+	async def stop(*args):
+
+		try:
+
+			bot.player.stop()
+
+		except Exception as e:
+
+			print(e)
+			await bot.say('There was an error while trying to stop the requested song...(No song?)')
+
+	@bot.command()
+	async def volume(*args):
+		
+		try:
+
+			bot.player.volume = float(float(int(args[0])) / float(100))
+
+		except Exception as e:
+
+			print(e)
+			await bot.say('There was an error while trying to set volume...(No song?)')
 
 	@bot.command(pass_context = True)
 	async def say(ctx, *args):
@@ -208,7 +300,7 @@ def main(bot_class = Bot):
 
 			await delete_message(bot, ctx.message)
 
-			await bot.say(' '.join(args))
+			await bot.say(' '.join(args[1:]))
 
 		else:
 			
@@ -228,7 +320,6 @@ def main(bot_class = Bot):
 			await bot.change_presence(game = discord.Game(name = (' '.join(args))))
 			print('Status changed to {}'.format(' '.join(args)))
 
-
 		else:
 
 			await bot.say("<@{}> you don't have enough permissions to do that...".format(ctx.message.author.id))
@@ -238,11 +329,16 @@ def main(bot_class = Bot):
 
 		async for msg in bot.logs_from(ctx.message.channel, limit = 100):
 
-			if (msg.author.id == '396068336666017794'):
+			if (msg.author.id == bot.user.id):
 
 				await bot.delete_message(msg)
 
 		await bot.say(':thumbsup: Succesfully cleaned all my messages...')
+
+	@bot.command()
+	async def secure(*args):
+
+		await bot.say('⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n⠀⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n⠀⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n⠀⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n⠀⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n⠀Secure :thumbsup:')
 			
 	run(bot)
 
@@ -250,4 +346,4 @@ if __name__ == '__main__':
 	main()
 
 # The help command is currently set to be Direct Messaged.
-# If you would like to change that, change "pm_help = True" to "pm_help = False" on line 9.
+# If you would like to change that, change "pm_help = True" to "pm_help = False".

@@ -11,5 +11,17 @@ DxDBOT is a discord bot for a private server. If you want to test him, join my s
 - Discord.py(https://discordpy.readthedocs.io/en/latest/)
 
 ```
-python -m pip install -U discord.py[voice]
+ sudo python -m pip install -U discord.py[voice]
+```
+
+- Validators
+
+```
+sudo pip install validators
+```
+
+- Google API Client for Python
+
+```
+sudo pip install --upgrade google-api-python-client
 ```

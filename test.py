@@ -9,15 +9,42 @@ import datetime
 import random
 import validators
 import argparse
+import time
 
 from ytsearch import youtube_search
 
 from apiclient.discovery import build
 from apiclient.errors import HttpError
 
+def timing_function(function):
+
+	async def wrapper():
+		t1 = time.time()
+		function()
+		t2 = time.time()
+		print(str(t2 - t1) + ' Seconds')
+
+	return wrapper
+
+def logger_function(function):
+	
+	@timing_function
+	async def log():
+
+		try:
+
+			print('Runing function: {}'.format(function))
+			function()
+
+		except Exception as e:
+			
+			print('An error was encountered while running: {}'.format(function))
+			print(e)
+
+	return log
+
 #Bot's class
 class Bot(commands.Bot):
-
 	def __init__(self, *args, **kwargs):
 
 		def prefix_manager(bot, message):
@@ -188,12 +215,10 @@ def main(bot_class = Bot):
 
 		if (str(args[1].status) != 'offline' and str(args[0].status) == 'offline'):
 			
-			await bot.send_message(discord.Object('375763075783196684'), "{} is {}{}".format(str(args[1].id), str(args[1].status), random.choice(msg_options)))
-	
+			await bot.send_message(discord.Object('375763075783196684'), "<@{}> is {}{}".format(str(args[1].id), str(args[1].status), random.choice(msg_options)))
+	'''
 	@bot.event
 	async def on_message(message):
-
-		await bot.process_commands(message)
 
 		nsfw = ('bitch', 'dick', 'cock', 'slut', 'vagina', 'porn', 'penis', 'pussy', 'succ', 'felatio', 'pene', 'pija', 'concha')
 
@@ -201,9 +226,8 @@ def main(bot_class = Bot):
 
 			if x in nsfw:
 
-				await bot.send_message(discord.Object(message.channel.id), '<@{}> This is not an NSFW Channel, please calm down...'.format(message.author.id))
-				await bot.delete_message(message)
-	
+				await bot.send_message(discord.Object('375763075783196684'), '<@{}> This is not an NSFW Channel, please calm down...'.format(message.author.id))
+	'''
 	@bot.command(pass_context = True)
 	async def ping(ctx):
 
@@ -309,18 +333,9 @@ def main(bot_class = Bot):
 			print(e)
 			await bot.say('There was an error while trying to set volume...(No song?)')
 
-			say("hola", "como", "andas")
-
-
-			("hola", "como", "andas")
-
-
 	@bot.command(pass_context = True)
+	@logger_function
 	async def say(ctx, *args):
-
-		"""
-		Description
-		"""
 
 		if (check_deletion(args[0])):
 
@@ -332,13 +347,11 @@ def main(bot_class = Bot):
 			
 			await bot.say(' '.join(args))
 	
-	'''
 	@bot.command(pass_context = True)
 	async def sayd(ctx, *args):
 
 		await bot.delete_message(ctx.message)			
 		await bot.say(' '.join(args))
-	'''
 
 	@bot.command(pass_context = True)
 	async def status(ctx, *args):
@@ -357,7 +370,7 @@ def main(bot_class = Bot):
 
 		async for msg in bot.logs_from(ctx.message.channel, limit = 100):
 
-			if (msg.author.id == bot.user.id or str(msg.content).startswith('/')):
+			if (msg.author.id == bot.user.id):
 
 				await bot.delete_message(msg)
 
@@ -367,18 +380,7 @@ def main(bot_class = Bot):
 	async def secure(*args):
 
 		await bot.say('⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n⠀⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n⠀⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n⠀⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n⠀⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n ⠀\n⠀Secure :thumbsup:')
-	
-	@bot.command(pass_context = True)
-	async def react(ctx, *args):
-
-		emojis = bot.get_all_emojis()
-
-		print(emojis)
-		'''
-		for letter in args:
-
-			await bot.add_reaction(ctx.message, '{REGIONAL INDICATOR {}}'.format(letter.upper()))
-	'''
+			
 	run(bot)
 
 if __name__ == '__main__':
